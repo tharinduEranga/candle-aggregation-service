@@ -4,19 +4,23 @@ import com.example.candle.domain.BidAskEvent;
 import com.example.candle.domain.CandleInterval;
 import com.example.candle.domain.CandleKey;
 import com.example.candle.repository.CandleRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class CandleAggregator {
 
+    private static final Logger log = LoggerFactory.getLogger(CandleAggregator.class);
+
     private final CandleRepository candleRepository;
+
+    public CandleAggregator(CandleRepository candleRepository) {
+        this.candleRepository = candleRepository;
+    }
 
     private final List<CandleInterval> supportedIntervals = List.of(
             CandleInterval.ONE_SECOND,
@@ -41,7 +45,7 @@ public class CandleAggregator {
             candleRepository.updateCandle(key, price);
         }
 
-        log.debug(
+        log.info(
                 "Processed market event. symbol={}, bid={}, ask={}, timestamp={}",
                 event.symbol(),
                 event.bid(),
