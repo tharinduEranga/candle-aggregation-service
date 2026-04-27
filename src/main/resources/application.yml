@@ -2,3 +2,13 @@ spring:
   threads:
     virtual:
       enabled: true
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/candles}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  sql:
+    init:
+      mode: always

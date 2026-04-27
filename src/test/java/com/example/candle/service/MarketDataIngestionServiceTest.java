@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 class MarketDataIngestionServiceTest {
@@ -74,17 +75,12 @@ class MarketDataIngestionServiceTest {
     private static final class NoOpCandleRepository implements CandleRepository {
 
         @Override
-        public void updateCandle(CandleKey key, BigDecimal price) {
+        public void updateCandle(CandleKey key, Candle candle) {
         }
 
         @Override
         public List<Candle> findCandles(String symbol, CandleInterval interval, long from, long to) {
             return List.of();
-        }
-
-        @Override
-        public long count() {
-            return 0;
         }
     }
 }

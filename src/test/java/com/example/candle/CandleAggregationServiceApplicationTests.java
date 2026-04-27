@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.core.task.AsyncTaskExecutor;
+import com.example.candle.repository.CandleRepository;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
@@ -12,8 +14,13 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
+})
 class CandleAggregationServiceApplicationTests {
+
+    @MockBean
+    private CandleRepository candleRepository;
 
     @Autowired
     @Qualifier("applicationTaskExecutor")

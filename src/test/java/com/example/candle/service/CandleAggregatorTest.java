@@ -1,6 +1,7 @@
 package com.example.candle.service;
 
 import com.example.candle.domain.BidAskEvent;
+import com.example.candle.domain.Candle;
 import com.example.candle.domain.CandleInterval;
 import com.example.candle.domain.CandleKey;
 import com.example.candle.repository.CandleRepository;
@@ -11,11 +12,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,7 +28,7 @@ class CandleAggregatorTest {
     private CandleRepository candleRepository;
 
     @Test
-    void process_updatesAllSupportedIntervalsWithExpectedKeysAndMidPrice() {
+    void process_buffersInMemoryWithoutTouchingRepository() {
         CandleAggregator candleAggregator = new CandleAggregator(candleRepository);
 
         BidAskEvent event = new BidAskEvent(
@@ -37,13 +40,30 @@ class CandleAggregatorTest {
 
         candleAggregator.process(event);
 
-        ArgumentCaptor<CandleKey> keyCaptor = ArgumentCaptor.forClass(CandleKey.class);
-        ArgumentCaptor<BigDecimal> priceCaptor = ArgumentCaptor.forClass(BigDecimal.class);
+        verifyNoInteractions(candleRepository);
+    }
 
-        verify(candleRepository, times(5)).updateCandle(keyCaptor.capture(), priceCaptor.capture());
+    @Test
+    void flushToDb_writesAllSupportedIntervalsWithExpectedKeysAndMidPrice() {
+        CandleAggregator candleAggregator = new CandleAggregator(candleRepository);
+
+        BidAskEvent event = new BidAskEvent(
+                "BTC-USD",
+                new BigDecimal("50000.00"),
+                new BigDecimal("50002.00"),
+                3_671L
+        );
+
+        candleAggregator.process(event);
+        candleAggregator.flushToDb();
+
+        ArgumentCaptor<CandleKey> keyCaptor = ArgumentCaptor.forClass(CandleKey.class);
+        ArgumentCaptor<Candle> candleCaptor = ArgumentCaptor.forClass(Candle.class);
+
+        verify(candleRepository, times(5)).updateCandle(keyCaptor.capture(), candleCaptor.capture());
         verifyNoMoreInteractions(candleRepository);
 
-        List<CandleKey> expectedKeys = List.of(
+        Set<CandleKey> expectedKeys = Set.of(
                 new CandleKey("BTC-USD", CandleInterval.ONE_SECOND, 3_671L),
                 new CandleKey("BTC-USD", CandleInterval.FIVE_SECONDS, 3_670L),
                 new CandleKey("BTC-USD", CandleInterval.ONE_MINUTE, 3_660L),
@@ -51,16 +71,20 @@ class CandleAggregatorTest {
                 new CandleKey("BTC-USD", CandleInterval.ONE_HOUR, 3_600L)
         );
 
-        assertEquals(expectedKeys, keyCaptor.getAllValues());
+        assertEquals(expectedKeys, Set.copyOf(keyCaptor.getAllValues()));
 
         BigDecimal expectedPrice = new BigDecimal("50001.00000000");
-        for (BigDecimal capturedPrice : priceCaptor.getAllValues()) {
-            assertEquals(expectedPrice, capturedPrice);
+        for (Candle captured : candleCaptor.getAllValues()) {
+            assertEquals(expectedPrice, captured.open());
+            assertEquals(expectedPrice, captured.high());
+            assertEquals(expectedPrice, captured.low());
+            assertEquals(expectedPrice, captured.close());
+            assertEquals(1L, captured.volume());
         }
     }
 
     @Test
-    void process_usesRoundedMidPriceFromBidAndAsk() {
+    void flushToDb_usesRoundedMidPriceFromBidAndAsk() {
         CandleAggregator candleAggregator = new CandleAggregator(candleRepository);
 
         BidAskEvent event = new BidAskEvent(
@@ -71,13 +95,23 @@ class CandleAggregatorTest {
         );
 
         candleAggregator.process(event);
+        candleAggregator.flushToDb();
 
-        ArgumentCaptor<BigDecimal> priceCaptor = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(candleRepository, times(5)).updateCandle(org.mockito.ArgumentMatchers.any(CandleKey.class), priceCaptor.capture());
+        ArgumentCaptor<Candle> candleCaptor = ArgumentCaptor.forClass(Candle.class);
+        verify(candleRepository, times(5)).updateCandle(any(CandleKey.class), candleCaptor.capture());
 
         BigDecimal expectedPrice = new BigDecimal("1.00000002");
-        for (BigDecimal capturedPrice : priceCaptor.getAllValues()) {
-            assertEquals(expectedPrice, capturedPrice);
+        for (Candle captured : candleCaptor.getAllValues()) {
+            assertEquals(expectedPrice, captured.close());
         }
+    }
+
+    @Test
+    void flushToDb_doesNothingWhenNoEventsBuffered() {
+        CandleAggregator candleAggregator = new CandleAggregator(candleRepository);
+
+        candleAggregator.flushToDb();
+
+        verifyNoInteractions(candleRepository);
     }
 }

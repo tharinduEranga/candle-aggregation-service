@@ -4,12 +4,11 @@ import com.example.candle.domain.Candle;
 import com.example.candle.domain.CandleInterval;
 import com.example.candle.domain.CandleKey;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 public interface CandleRepository {
 
-    void updateCandle(CandleKey key, BigDecimal price);
+    void updateCandle(CandleKey key, Candle candle);
 
     List<Candle> findCandles(
             String symbol,
@@ -17,6 +16,4 @@ public interface CandleRepository {
             long from,
             long to
     );
-
-    long count();
 }
